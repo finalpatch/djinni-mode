@@ -31,7 +31,7 @@
 
 (defvar djinni-mode-syntax-table
   (let ((st (make-syntax-table)))
-    (modify-syntax-entry ?_ "w")
+    (modify-syntax-entry ?_ "w" st)
     (modify-syntax-entry ?\{ "(}" st)
     (modify-syntax-entry ?\} "){" st)
     (modify-syntax-entry ?\< "(>" st)
@@ -39,7 +39,7 @@
     (modify-syntax-entry ?\" "\"" st)
     (modify-syntax-entry ?# "<" st)
     (modify-syntax-entry ?\n ">" st)
-    (modify-syntax-entry ?+ "." st)
+    (modify-syntax-entry ?@ "_" st)
     st))
 
 (defconst djinni-mode-keywords '("interface" "record" "enum" "const" "flags" "static" "deriving")
@@ -70,7 +70,10 @@
 (defconst djinni-mode-smie-grammar
   (smie-prec2->grammar
    (smie-precs->prec2
-    '((assoc ";")
+    '((right "@import")
+      (right "@extern")
+      (right "@protobuf")
+      (assoc ";")
       (assoc ",")
       (assoc ":")))))
 
@@ -83,11 +86,21 @@ information."
      (save-excursion
        (smie-backward-sexp) (back-to-indentation)
        `(column . ,(smie-indent-virtual))))
+    (`(:before . "(")
+     (save-excursion
+       (smie-backward-sexp) (back-to-indentation)
+       `(column . ,(smie-indent-virtual))))
     (`(:after . "}")
      (save-excursion
        (smie-backward-sexp) (back-to-indentation)
-       `(column . ,(sm-c--smie-virtual))))
-    (`(:elem . basic) djinni-mode-indent-level)))
+       `(column . ,(smie-indent-virtual))))
+    (`(:elem . basic)
+     (save-excursion
+       (let ((c (current-column)))
+         (smie-backward-sexp) (back-to-indentation)
+         (if (looking-at "@")
+             (- (current-column) c)
+           djinni-mode-indent-level))))))
 
 (defconst djinni-imenu-generic-expression
   '(("*Interfaces*" "^\\(\\sw+\\)\\s-*=\\s-*interface" 1)
