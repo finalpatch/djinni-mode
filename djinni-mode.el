@@ -3,7 +3,7 @@
 ;; Author:  Li Feng <fengli@gmail.com>
 ;; Maintainer: Li Feng <fengli@gmail.com>
 ;; Created: October 2020
-;; Version: 0.1
+;; Version: 0.2
 ;; Keywords: djinni emacs
 
 ;; This file is not part of GNU Emacs.
@@ -49,23 +49,27 @@
   "List of Djinni constants.")
 
 (defvar djinni-mode-font-lock-keywords
-  `(;; Constants
-    (,(concat "\\<" (regexp-opt djinni-mode-keywords) "\\>")
+  `((,(concat "\\<" (regexp-opt djinni-mode-keywords) "\\>")
      (0 font-lock-keyword-face))
     (,(concat "\\<" (regexp-opt djinni-mode-constants) "\\>")
      (0 font-lock-constant-face))
-    ("@[a-z]+" . 'font-lock-builtin-face)
+    ("@[a-z]+" . 'font-lock-preprocessor-face)
     ("\\+[cjo]" . 'font-lock-preprocessor-face)
-    ;; ("^\\s-*\\([a-zA-Z0-9_]+\\)\\s-*;" . (1 'font-lock-constant-face))
-    ("\\([a-zA-Z0-9_]+\\)\\s-*:\\s-*\\([a-zA-Z0-9_]+\\)"
+    ("\\([a-zA-Z0-9_]+\\)[ \t\n]*:[ \t\n]*\\([a-zA-Z0-9_]+\\)"
      (1 'font-lock-variable-name-face) (2 'font-lock-type-face))
-    (")\\s-*:\\s-*\\([a-zA-Z0-9_]+\\)" . (1 'font-lock-type-face))
-    ("^\\s-*\\(\\sw+\\)\\s-*=\\s-*\\(enum\\|flags\\|record\\|interface\\)" . (1 'font-lock-type-face))
-    ("\\(\\sw+\\)\\s-*<\\(\\sw+\\)>" (1 'font-lock-type-face) (2 'font-lock-type-face))
-    ("\\(\\sw+\\)\\s-*<\\(\\sw+\\)\\s-*,\\s-*\\(\\sw+\\)>"
+    (")[ \t\n]*:[ \t\n]*\\([a-zA-Z0-9_]+\\)" . (1 'font-lock-type-face))
+    ("^[ \t\n]*\\(\\sw+\\)[ \t\n]*=[ \t\n]*\\(enum\\|flags\\|record\\|interface\\)"
+     . (1 'font-lock-type-face))
+    ("\\(\\sw+\\)[ \t\n]*<\\(\\sw+\\)>" (1 'font-lock-type-face) (2 'font-lock-type-face))
+    ("\\(\\sw+\\)[ \t\n]*<\\(\\sw+\\)[ \t\n]*,[ \t\n]*\\(\\sw+\\)>"
      (1 'font-lock-type-face) (2 'font-lock-type-face) (3 'font-lock-type-face))
-    ("^\\s-*\\(static\\s-*\\)?\\(\\sw+\\)\\s-*(" . (2 'font-lock-function-name-face))
-    ))
+    ("^[ \t\n]*\\(static[ \t\n]*\\)?\\(\\sw+\\)[ \t\n]*(" . (2 'font-lock-function-name-face))))
+
+(defun djinni-font-lock-extend-region-func (beg end old-len)
+  (save-excursion
+    (cons
+     (progn (goto-char beg) (backward-word) (point))
+     (progn (goto-char end) (forward-word) (point)))))
 
 (defconst djinni-mode-smie-grammar
   (smie-prec2->grammar
@@ -75,7 +79,7 @@
       (right "@protobuf")
       (assoc ";")
       (assoc ",")
-      (assoc ":")))))
+      (left ":")))))
 
 (defun djinni-mode-smie-rules (method arg)
   "Provide indentation rules for METHOD given ARG.
@@ -94,6 +98,7 @@ information."
      (save-excursion
        (smie-backward-sexp) (back-to-indentation)
        `(column . ,(smie-indent-virtual))))
+    (`(:before . ,(or `"=" `":")) djinni-mode-indent-level)
     (`(:elem . basic)
      (save-excursion
        (let ((c (current-column)))
@@ -115,6 +120,7 @@ information."
 (define-derived-mode djinni-mode prog-mode "Djinni"
   "A mode for editing Djinni IDL files."
   (setq-local font-lock-defaults '(djinni-mode-font-lock-keywords nil nil nil nil))
+  (setq-local font-lock-extend-after-change-region-function #'djinni-font-lock-extend-region-func)
   (setq-local comment-start "# ")
   (setq-local comment-end "")
   (smie-setup djinni-mode-smie-grammar #'djinni-mode-smie-rules)
