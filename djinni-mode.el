@@ -98,7 +98,8 @@ information."
      (save-excursion
        (smie-backward-sexp) (back-to-indentation)
        `(column . ,(smie-indent-virtual))))
-    (`(:before . ,(or `"=" `":")) djinni-mode-indent-level)
+    (`(:after . ":") djinni-mode-indent-level)
+    (`(:before . "=") djinni-mode-indent-level)
     (`(:elem . basic)
      (save-excursion
        (let ((c (current-column)))
